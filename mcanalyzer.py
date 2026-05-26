@@ -1,20 +1,47 @@
 #!/usr/bin/env python3
 """
 MCAnalyzer - Minecraft 存档卡顿分析器
-主入口脚本
+主入口脚本 - 增强诊断版
 """
 
-import argparse
 import sys
+import argparse
 import time
 from pathlib import Path
 
-from utils.logger import setup_logger
-from core.region_scanner import scan_world
-from analyzer.metrics import identify_problem_chunks
-from analyzer.sorter import sort_chunks, export_csv, export_json
-from report.console import print_top_chunks
-from report.heatmap import generate_heatmap
+# 在最开始打印启动标记，检查脚本是否被执行
+print("=== MCAnalyzer started ===", flush=True)
+
+# 尝试导入模块，若失败则打印详细错误
+try:
+    from utils.logger import setup_logger
+    print("✓ utils.logger imported", flush=True)
+except Exception as e:
+    print(f"✗ Failed to import utils.logger: {e}", flush=True)
+    sys.exit(1)
+
+try:
+    from core.region_scanner import scan_world
+    print("✓ core.region_scanner imported", flush=True)
+except Exception as e:
+    print(f"✗ Failed to import core.region_scanner: {e}", flush=True)
+    sys.exit(1)
+
+try:
+    from analyzer.metrics import identify_problem_chunks
+    from analyzer.sorter import sort_chunks, export_csv, export_json
+    print("✓ analyzer modules imported", flush=True)
+except Exception as e:
+    print(f"✗ Failed to import analyzer modules: {e}", flush=True)
+    sys.exit(1)
+
+try:
+    from report.console import print_top_chunks
+    from report.heatmap import generate_heatmap
+    print("✓ report modules imported", flush=True)
+except Exception as e:
+    print(f"✗ Failed to import report modules: {e}", flush=True)
+    sys.exit(1)
 
 
 def parse_args():
@@ -41,9 +68,25 @@ def parse_args():
 
 
 def main():
+    print(">>> Entering main()", flush=True)
     args = parse_args()
+    print(f">>> Arguments parsed: world={args.world}, verbose={args.verbose}", flush=True)
+
+    # 临时使用 print 输出直到 logger 生效
     log_level = "DEBUG" if args.verbose else "INFO"
-    logger = setup_logger(level=log_level)
+    try:
+        logger = setup_logger(level=log_level)
+        print(">>> Logger setup completed", flush=True)
+    except Exception as e:
+        print(f"!!! Logger setup failed: {e}", flush=True)
+        # 创建一个简单的 fallback logger
+        class DummyLogger:
+            def info(self, msg): print(f"[INFO] {msg}", flush=True)
+            def debug(self, msg): print(f"[DEBUG] {msg}", flush=True)
+            def warning(self, msg): print(f"[WARNING] {msg}", flush=True)
+            def error(self, msg): print(f"[ERROR] {msg}", flush=True)
+            def exception(self, msg): print(f"[EXCEPTION] {msg}", flush=True)
+        logger = DummyLogger()
 
     world_path = Path(args.world)
     if not world_path.exists():

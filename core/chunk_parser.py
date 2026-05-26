@@ -1,21 +1,17 @@
 import zlib
 import gzip
 import io
-from typing import Tuple, List, Any
+from typing import Tuple
 
-# 优先使用 nbtlib，如果失败则回退到简易解析器
-try:
-    import nbtlib
-    HAS_NBTLIB = True
-except ImportError:
-    HAS_NBTLIB = False
-    from .simple_nbt import parse_nbt
+from .simple_nbt import parse_nbt
 
 
 def decompress_chunk(data: bytes) -> bytes:
     if len(data) < 1:
         raise ValueError("Empty data")
     compression = data[0]
+    if compression == 0:
+        raise ValueError("Compression type 0: empty or unused chunk")
     compressed = data[1:]
     if compression == 1:
         with gzip.open(io.BytesIO(compressed), 'rb') as f:
@@ -29,34 +25,4 @@ def decompress_chunk(data: bytes) -> bytes:
 
 
 def get_entity_and_blockentity_count(nbt_data: bytes) -> Tuple[int, int]:
-    if HAS_NBTLIB:
-        try:
-            root = nbtlib.load(io.BytesIO(nbt_data))
-            # 获取 Level 标签
-            if "Level" in root:
-                level = root["Level"]
-            else:
-                level = root
-
-            # 获取实体列表，确保是列表类型
-            entities_obj = level.get("Entities")
-            if entities_obj is None:
-                entities: List[Any] = []
-            else:
-                entities = list(entities_obj)  # 转换为列表确保类型
-
-            # 获取方块实体列表
-            tile_obj = level.get("TileEntities")
-            if tile_obj is None:
-                tile_obj = level.get("block_entities")
-            if tile_obj is None:
-                tile_entities: List[Any] = []
-            else:
-                tile_entities = list(tile_obj)
-
-            return len(entities), len(tile_entities)
-        except Exception:
-            # 回退到简易解析器
-            return parse_nbt(nbt_data)
-    else:
-        return parse_nbt(nbt_data)
+    return parse_nbt(nbt_data)

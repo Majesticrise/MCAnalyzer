@@ -20,7 +20,6 @@ def generate_heatmap(chunks: List[ChunkStats], output_path: Path, entity_thresho
         output_path.write_text(html, encoding='utf-8')
         return
 
-    # 筛选问题区块
     problem_chunks = [c for c in chunks if c.entity_count >= entity_threshold]
 
     if problem_chunks:
@@ -58,35 +57,22 @@ def generate_heatmap(chunks: List[ChunkStats], output_path: Path, entity_thresho
         output_path.write_text(html, encoding='utf-8')
         return
 
-    # 构建数据网格（实体数 + 时间字符串）
+    # 构建网格 (gx, gz 提前计算，避免未定义错误)
     chunk_map = {(c.x, c.z): c for c in chunks}
     grid = [[0] * width for _ in range(height)]
     time_grid = [[""] * width for _ in range(height)]
+
     for x in range(min_x, max_x + 1):
+        gx = x - min_x
         for z in range(min_z, max_z + 1):
+            gz = z - min_z
             c = chunk_map.get((x, z))
             if c:
-                gx = x - min_x
-                gz = z - min_z
                 grid[gz][gx] = c.entity_count
                 time_grid[gz][gx] = timestamp_to_str(c.last_timestamp)
             else:
+                grid[gz][gx] = 0
                 time_grid[gz][gx] = "无数据"
-
-    # 颜色映射
-    def get_color(value):
-        if value == 0:
-            return "#eeeeee"
-        elif value < 50:
-            return "#c6dbef"
-        elif value < 100:
-            return "#9ecae1"
-        elif value < 200:
-            return "#6baed6"
-        elif value < 500:
-            return "#4292c6"
-        else:
-            return "#08519c"
 
     cell_size = 10
     map_width = width * cell_size
@@ -119,7 +105,7 @@ def generate_heatmap(chunks: List[ChunkStats], output_path: Path, entity_thresho
         <div class="legend-item"><div class="legend-color" style="background:#9ecae1;"></div> 50-99</div>
         <div class="legend-item"><div class="legend-color" style="background:#6baed6;"></div> 100-199</div>
         <div class="legend-item"><div class="legend-color" style="background:#4292c6;"></div> 200-499</div>
-        <div class="legend-item"><div class="legend-color" style="background:#08519c;"></div> ≥500</div>
+        <div class="legend-item"><div class="legend-color" style="background:#08519c;"></div> >=500</div>
     </div>
     <canvas id="heatmap" width="{map_width}" height="{map_height}" style="border:1px solid #ccc;"></canvas>
     <div class="tooltip" id="tooltip"></div>
@@ -172,7 +158,7 @@ def generate_heatmap(chunks: List[ChunkStats], output_path: Path, entity_thresho
                 tooltip.style.display = 'block';
                 tooltip.style.left = (e.clientX + 15) + 'px';
                 tooltip.style.top = (e.clientY - 30) + 'px';
-                tooltip.innerHTML = `区块 ({{worldX}}, {{worldZ}})<br>实体数: ${{entityCount}}<br>最后访问: ${{lastTime}}`;
+                tooltip.innerHTML = `区块 (${{worldX}}, ${{worldZ}})<br>实体数: ${{entityCount}}<br>最后访问: ${{lastTime}}`;
             }} else {{
                 tooltip.style.display = 'none';
             }}

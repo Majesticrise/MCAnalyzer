@@ -1,4 +1,4 @@
-import os
+import logging
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
@@ -6,9 +6,8 @@ from typing import List
 from .region_file import RegionFile
 from .chunk_parser import decompress_chunk, get_entity_and_blockentity_count
 from .chunk_stats import ChunkStats
-from utils.logger import setup_logger
 
-logger = setup_logger()
+logger = logging.getLogger(__name__)
 
 
 def scan_world(world_path: Path, dimension: str = "overworld", max_threads: int = 1) -> List[ChunkStats]:

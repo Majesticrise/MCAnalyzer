@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-"""
-MCAnalyzer - Minecraft 存档卡顿分析器
-主入口脚本 - 增强诊断版
-"""
 
 import sys
 import argparse

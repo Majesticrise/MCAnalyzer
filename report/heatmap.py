@@ -33,7 +33,7 @@ def generate_heatmap(chunks: List[ChunkStats], output_path: Path, entity_thresho
     height = max_z - min_z + 1
 
     # 限制网格最大尺寸（防止浏览器卡顿）
-    MAX_SIZE = 500
+    MAX_SIZE = 10240
     if width > MAX_SIZE or height > MAX_SIZE:
         # 如果缩放后仍然太大，给出文字报告
         html = f"""<html><body>

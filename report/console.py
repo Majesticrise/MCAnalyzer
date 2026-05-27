@@ -1,11 +1,22 @@
 from typing import List
 from core.chunk_stats import ChunkStats
+from datetime import datetime
 
 try:
     from tabulate import tabulate
     HAS_TABULATE = True
 except ImportError:
     HAS_TABULATE = False
+
+def timestamp_to_str(ts: int) -> str:
+    """将 Unix 时间戳转换为本地日期时间字符串"""
+    if ts == 0:
+        return "从未访问"
+    try:
+        dt = datetime.fromtimestamp(ts)
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return str(ts)
 
 
 def print_top_chunks(chunks: List[ChunkStats], top_n: int = 20):

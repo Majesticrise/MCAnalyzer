@@ -1,28 +1,35 @@
 from pathlib import Path
 from typing import List
 from core.chunk_stats import ChunkStats
+from datetime import datetime
+
+
+def timestamp_to_str(ts: int) -> str:
+    if ts == 0:
+        return "从未访问"
+    try:
+        dt = datetime.fromtimestamp(ts)
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return str(ts)
 
 
 def generate_heatmap(chunks: List[ChunkStats], output_path: Path, entity_threshold: int):
-    """生成 HTML 热力图（Canvas 网格），若世界过大则自动缩放到问题区块周围"""
     if not chunks:
         html = "<html><body><h1>没有区块数据</h1></body></html>"
         output_path.write_text(html, encoding='utf-8')
         return
 
-    # 筛选问题区块（实体数 >= threshold）
+    # 筛选问题区块
     problem_chunks = [c for c in chunks if c.entity_count >= entity_threshold]
 
-    # 决定显示范围：如果有问题区块，则显示其周围区域；否则显示全图（但会受尺寸限制）
     if problem_chunks:
-        # 计算问题区块的边界，并向外扩展 16 个区块（保证能看到周围环境）
         min_x = min(c.x for c in problem_chunks) - 16
         max_x = max(c.x for c in problem_chunks) + 16
         min_z = min(c.z for c in problem_chunks) - 16
         max_z = max(c.z for c in problem_chunks) + 16
         title_suffix = f"（聚焦问题区块，共 {len(problem_chunks)} 个，实体≥{entity_threshold}）"
     else:
-        # 没有问题区块，显示全图（但可能很大）
         min_x = min(c.x for c in chunks)
         max_x = max(c.x for c in chunks)
         min_z = min(c.z for c in chunks)
@@ -32,10 +39,8 @@ def generate_heatmap(chunks: List[ChunkStats], output_path: Path, entity_thresho
     width = max_x - min_x + 1
     height = max_z - min_z + 1
 
-    # 限制网格最大尺寸（防止浏览器卡顿）
     MAX_SIZE = 10240
     if width > MAX_SIZE or height > MAX_SIZE:
-        # 如果缩放后仍然太大，给出文字报告
         html = f"""<html><body>
         <h1>世界范围仍然过大，无法显示热力图</h1>
         <p>区块范围 X: {min_x}~{max_x} (宽度 {width})，Z: {min_z}~{max_z} (高度 {height})</p>
@@ -47,17 +52,16 @@ def generate_heatmap(chunks: List[ChunkStats], output_path: Path, entity_thresho
         <h2>问题区块列表（前50）</h2>
         <table border="1" cellpadding="5">
         <tr><th>X</th><th>Z</th><th>实体数</th><th>方块实体数</th><th>最后访问时间</th></tr>
-        {''.join(f'<tr><td>{c.x}</td><td>{c.z}</td><td>{c.entity_count}</td><td>{c.block_entity_count}</td><td>{c.last_timestamp}</td></tr>' for c in problem_chunks[:50])}
+        {''.join(f'<tr><td>{c.x}</td><td>{c.z}</td><td>{c.entity_count}</td><td>{c.block_entity_count}</td><td>{timestamp_to_str(c.last_timestamp)}</td></tr>' for c in problem_chunks[:50])}
         </table>
         </body></html>"""
         output_path.write_text(html, encoding='utf-8')
         return
 
-    # 构建数据网格（只包含显示范围内的区块）
-    # 为了提高性能，先创建一个字典：坐标 -> ChunkStats
+    # 构建数据网格（实体数 + 时间字符串）
     chunk_map = {(c.x, c.z): c for c in chunks}
-
     grid = [[0] * width for _ in range(height)]
+    time_grid = [[""] * width for _ in range(height)]
     for x in range(min_x, max_x + 1):
         for z in range(min_z, max_z + 1):
             c = chunk_map.get((x, z))
@@ -65,8 +69,11 @@ def generate_heatmap(chunks: List[ChunkStats], output_path: Path, entity_thresho
                 gx = x - min_x
                 gz = z - min_z
                 grid[gz][gx] = c.entity_count
+                time_grid[gz][gx] = timestamp_to_str(c.last_timestamp)
+            else:
+                time_grid[gz][gx] = "无数据"
 
-    # 颜色映射函数
+    # 颜色映射
     def get_color(value):
         if value == 0:
             return "#eeeeee"
@@ -81,7 +88,7 @@ def generate_heatmap(chunks: List[ChunkStats], output_path: Path, entity_thresho
         else:
             return "#08519c"
 
-    cell_size = 10  # px
+    cell_size = 10
     map_width = width * cell_size
     map_height = height * cell_size
 
@@ -118,6 +125,7 @@ def generate_heatmap(chunks: List[ChunkStats], output_path: Path, entity_thresho
     <div class="tooltip" id="tooltip"></div>
     <script>
         const grid = {grid};
+        const timeGrid = {time_grid};
         const minX = {min_x};
         const minZ = {min_z};
         const cellSize = {cell_size};
@@ -160,10 +168,11 @@ def generate_heatmap(chunks: List[ChunkStats], output_path: Path, entity_thresho
                 var entityCount = grid[gridZ][gridX];
                 var worldX = minX + gridX;
                 var worldZ = minZ + gridZ;
+                var lastTime = timeGrid[gridZ][gridX];
                 tooltip.style.display = 'block';
                 tooltip.style.left = (e.clientX + 15) + 'px';
                 tooltip.style.top = (e.clientY - 30) + 'px';
-                tooltip.innerHTML = `区块 ({{worldX}}, {{worldZ}})<br>实体数: ${{entityCount}}`;
+                tooltip.innerHTML = `区块 ({{worldX}}, {{worldZ}})<br>实体数: ${{entityCount}}<br>最后访问: ${{lastTime}}`;
             }} else {{
                 tooltip.style.display = 'none';
             }}
